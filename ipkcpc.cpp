@@ -13,10 +13,12 @@
 #define BUFSIZE 257
 #define PAYLOADSIZE 255
 int client_socket;
+int flag;
 
 void arg_check(int argc, char * argv[]);
-void do_udp(const char *server_name, int port);
-void do_tcp(const char *server_name, int port);
+void prepare_connect(const char *server_name, int port, const char *mode);
+void do_udp(struct hostent* server, struct sockaddr_in* server_address);
+void do_tcp(struct hostent* server, struct sockaddr_in* server_address);
 void leave(int s);
 
 int main(int argc, char * argv[]) {
@@ -59,24 +61,17 @@ void arg_check(int argc, char * argv[]){
     }
   }
 
-  if(strcmp(mode, "udp") == 0){
-    do_udp(server_name, port);
-  }
-  else if(strcmp(mode, "tcp") == 0){
-    do_tcp(server_name, port);
-  }
-  else{
+  if(strcmp(mode, "udp") != 0 && strcmp(mode, "tcp") != 0){
     fprintf(stderr, "Wrong input argument <mode>!\n");
     fprintf(stderr, "usage: ipkcpc -h <host> -p <port> -m <mode>\n");
     exit(EXIT_FAILURE);
   }
+  prepare_connect(server_name, port, mode);
 }
 
-void do_udp(const char *server_name, int port){
+void prepare_connect(const char *server_name, int port, const char *mode){
 
   /* Definice proměnných */
-	int bytes_sent, bytes_recv;
-  socklen_t serverlen;
   struct hostent *server;
   struct sockaddr_in server_address;
   
@@ -86,31 +81,48 @@ void do_udp(const char *server_name, int port){
       fprintf(stderr,"ERROR: no such host as %s\n", server_name);
       exit(EXIT_FAILURE);
   }
-  
+
   /*  Nalezeni IP adresy serveru a inicializace struktury server_address */
   bzero((char *) &server_address, sizeof(server_address));
   server_address.sin_family = AF_INET;
   bcopy((char *)server->h_addr, (char *)&server_address.sin_addr.s_addr, server->h_length);
   server_address.sin_port = htons(port);
   
-  /*  Pomocne promenne pro komunikaci se serverem */
-  char input[PAYLOADSIZE];
-  char recv[BUFSIZE+1];
-  char strip[PAYLOADSIZE];
-
-  /* Vytvoreni soketu */
-  client_socket = socket(AF_INET, SOCK_DGRAM, 0);
-  if (client_socket < 1)
-  {
-    perror("ERROR: Chyba pri vytvareni socketu");
-    exit(EXIT_FAILURE);
+  /* Vytvoreni soketu UDP*/
+  if(strcmp(mode, "udp") == 0){
+    client_socket = socket(AF_INET, SOCK_DGRAM, 0);
+    if(client_socket < 1){
+      perror("ERROR: Chyba pri vytvareni socketu");
+      exit(EXIT_FAILURE);
+    }
+    flag = 1;
+    do_udp(server, &server_address);  //zavolani funkce pro UDP protokol
   }
 
-  while(true){ 
+  /* Vytvoreni soketu TCP*/
+  else
+    client_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if(client_socket < 1){
+      perror("ERROR: Chyba pri vytvareni socketu");
+      exit(EXIT_FAILURE);
+    }
+    flag = 2;
+    do_tcp(server, &server_address);  //zavolani funkce pro TCP protokol
+}
 
+/* Komunikace se serverem pomoci protokolu UDP*/
+void do_udp(struct hostent* server, struct sockaddr_in* server_address){
+  /*  Pomocne promenne pro komunikaci se serverem */
+  socklen_t serverlen;
+  char input[PAYLOADSIZE];
+  char recv[BUFSIZE];
+  char strip[PAYLOADSIZE];
+	int bytes_sent, bytes_recv;
+
+  while(true){ 
     /* Vynulovani pomocnych promennych */
     bzero(input, PAYLOADSIZE);
-    bzero(recv, BUFSIZE+1);
+    bzero(recv, BUFSIZE);
     bzero(strip, PAYLOADSIZE);
   
     /* Nacteni inputu ze STDIN */
@@ -120,16 +132,14 @@ void do_udp(const char *server_name, int port){
     char send[257] = {0, (char)strlen(input)};
     memcpy(send + 2, input, 255);
 
-
-
     /* Odeslani zpravy na server */
-    serverlen = sizeof(server_address);
-    bytes_sent = sendto(client_socket, send, strlen(&send[2]) + 2, 0, (struct sockaddr *) &server_address, serverlen);
+    serverlen = sizeof(*server_address);
+    bytes_sent = sendto(client_socket, send, strlen(&send[2]) + 2, 0, (struct sockaddr *)server_address, serverlen);
     if (bytes_sent < 0) 
       perror("ERROR: Chyba pri odesilani na server");
     
     /* Prijeti odpovedi*/
-    bytes_recv = recvfrom(client_socket, recv, 257, 0, (struct sockaddr *) &server_address, &serverlen);
+    bytes_recv = recvfrom(client_socket, recv, 257, 0, (struct sockaddr *)server_address, &serverlen);
     if (bytes_recv < 0) 
       perror("ERROR: Chyba pri prijimani odpovedi ze serveru");
 
@@ -140,7 +150,18 @@ void do_udp(const char *server_name, int port){
   }
 }
 
+
+void do_tcp(struct hostent* server, struct sockaddr_in* server_address){
+  exit(0);
+}
+
 void leave(int s){
-  close(client_socket);
+
+  if(flag == 1){
+    close(client_socket);
+  }
+  else{
+    close(client_socket);
+  }
   exit(0);
 }
