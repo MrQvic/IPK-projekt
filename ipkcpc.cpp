@@ -17,8 +17,8 @@ int flag;
 
 void arg_check(int argc, char * argv[]);
 void prepare_connect(const char *server_name, int port, const char *mode);
-void do_udp(struct hostent* server, struct sockaddr_in* server_address);
-void do_tcp(struct hostent* server, struct sockaddr_in* server_address);
+void do_udp(struct sockaddr_in* server_address);
+void do_tcp(struct sockaddr_in* server_address);
 void leave(int s);
 
 int main(int argc, char * argv[]) {
@@ -96,22 +96,23 @@ void prepare_connect(const char *server_name, int port, const char *mode){
       exit(EXIT_FAILURE);
     }
     flag = 1;
-    do_udp(server, &server_address);  //zavolani funkce pro UDP protokol
+    do_udp(&server_address);  //zavolani funkce pro UDP protokol
   }
 
   /* Vytvoreni soketu TCP*/
-  else
+  else{
     client_socket = socket(AF_INET, SOCK_STREAM, 0);
     if(client_socket < 1){
       perror("ERROR: Chyba pri vytvareni socketu");
       exit(EXIT_FAILURE);
     }
     flag = 2;
-    do_tcp(server, &server_address);  //zavolani funkce pro TCP protokol
+    do_tcp(&server_address);  //zavolani funkce pro TCP protokol
+  }
 }
 
 /* Komunikace se serverem pomoci protokolu UDP*/
-void do_udp(struct hostent* server, struct sockaddr_in* server_address){
+void do_udp(struct sockaddr_in* server_address){
   /*  Pomocne promenne pro komunikaci se serverem */
   socklen_t serverlen;
   char input[PAYLOADSIZE];
@@ -150,18 +151,67 @@ void do_udp(struct hostent* server, struct sockaddr_in* server_address){
   }
 }
 
+void do_tcp(struct sockaddr_in* server_address){
+  int connection = connect(client_socket, (const struct sockaddr *)server_address, sizeof(*server_address));
+  if (connection != 0){
+    perror("ERROR: Chyba pri pripojovani k serveru (TCP)");
+    exit(EXIT_FAILURE);        
+  }
 
-void do_tcp(struct hostent* server, struct sockaddr_in* server_address){
+  char input[PAYLOADSIZE];
+  //char recv[BUFSIZE];
+	int bytes_sent, bytes_recv;
+
+  while(true){
+    /* nacteni zpravy od uzivatele */
+    bzero(input, PAYLOADSIZE);
+    fgets(input, PAYLOADSIZE, stdin);
+
+    /* odeslani zpravy na server */
+    bytes_sent = send(client_socket, input, strlen(input), 0);
+    if (bytes_sent < 0) 
+      perror("ERROR in sendto");
+    
+    bzero(input, PAYLOADSIZE);
+
+    /* prijeti odpovedi a jeji vypsani */
+    bytes_recv = recv(client_socket, input, PAYLOADSIZE, 0);
+    if (bytes_recv < 0) 
+      perror("ERROR in recvfrom");
+      
+    printf("%s", input);
+
+    if(strcmp(input, "BYE\n") == 0){
+      break;
+    }
+  }
+  shutdown(client_socket, SHUT_RDWR);
+  close(client_socket);
   exit(0);
 }
 
 void leave(int s){
+  (void)s;
+  if(flag == 2){
+    char input[PAYLOADSIZE] = "BYE\n";
+    int bytes;
 
-  if(flag == 1){
-    close(client_socket);
+    bytes = send(client_socket, input, strlen(input), 0);
+    if (bytes < 0) 
+      perror("ERROR in recvfrom");
+
+    printf("%s", input);
+
+    bzero(input, PAYLOADSIZE);
+    bytes = 0;
+
+    bytes = recv(client_socket, input, PAYLOADSIZE, 0);
+    if (bytes < 0) 
+      perror("ERROR in recvfrom");
+
+    printf("%s", input);
+    shutdown(client_socket, SHUT_RDWR);
   }
-  else{
-    close(client_socket);
-  }
+  close(client_socket);
   exit(0);
 }
