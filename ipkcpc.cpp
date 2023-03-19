@@ -12,13 +12,21 @@
 
 #define BUFSIZE 257
 #define PAYLOADSIZE 255
-
+int client_socket;
 
 void arg_check(int argc, char * argv[]);
 void do_udp(const char *server_name, int port);
-void do_tcp();
+void do_tcp(const char *server_name, int port);
+void leave(int s);
 
 int main(int argc, char * argv[]) {
+
+  /*  Odchyceni vyjimky preruseni (ctrl-c) */
+  struct sigaction interrupthandler;
+  memset(&interrupthandler, 0, sizeof(struct sigaction));
+  interrupthandler.sa_flags = 0;
+  interrupthandler.sa_handler = leave;
+  sigaction(SIGINT, &interrupthandler, NULL);
 
   /*  test vstupnich parametru: */
   arg_check(argc, argv);
@@ -33,7 +41,6 @@ void arg_check(int argc, char * argv[]){
   const char *server_name;
   const char *mode;
   int port;
-  int client_socket;
 
   for(int i = 1; i < argc; i+=2){
     if(strcmp(argv[i], "-h") == 0)
@@ -56,7 +63,7 @@ void arg_check(int argc, char * argv[]){
     do_udp(server_name, port);
   }
   else if(strcmp(mode, "tcp") == 0){
-    do_tcp(argc, argv);
+    do_tcp(server_name, port);
   }
   else{
     fprintf(stderr, "Wrong input argument <mode>!\n");
@@ -68,7 +75,7 @@ void arg_check(int argc, char * argv[]){
 void do_udp(const char *server_name, int port){
 
   /* Definice proměnných */
-  int bytes_sent, bytes_recv;
+	int bytes_sent, bytes_recv;
   socklen_t serverlen;
   struct hostent *server;
   struct sockaddr_in server_address;
@@ -91,6 +98,14 @@ void do_udp(const char *server_name, int port){
   char recv[BUFSIZE+1];
   char strip[PAYLOADSIZE];
 
+  /* Vytvoreni soketu */
+  client_socket = socket(AF_INET, SOCK_DGRAM, 0);
+  if (client_socket < 1)
+  {
+    perror("ERROR: Chyba pri vytvareni socketu");
+    exit(EXIT_FAILURE);
+  }
+
   while(true){ 
 
     /* Vynulovani pomocnych promennych */
@@ -105,13 +120,7 @@ void do_udp(const char *server_name, int port){
     char send[257] = {0, (char)strlen(input)};
     memcpy(send + 2, input, 255);
 
-    /* Vytvoreni soketu */
-    client_socket = socket(AF_INET, SOCK_DGRAM, 0);
-    if (client_socket < 1)
-    {
-      perror("ERROR: Chyba pri vytvareni socketu");
-      exit(EXIT_FAILURE);
-    }
+
 
     /* Odeslani zpravy na server */
     serverlen = sizeof(server_address);
@@ -131,6 +140,7 @@ void do_udp(const char *server_name, int port){
   }
 }
 
-void do_tcp(){
+void leave(int s){
+  close(client_socket);
   exit(0);
 }
