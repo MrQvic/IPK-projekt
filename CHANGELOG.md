@@ -6,5 +6,5 @@ Upravena většina ERROR zpráv, přidány zdroje k částem kódu, kde jsem če
 ## Verze 1.0
 První funkční verze zcela splňující zadání. Přidány kontroly krajních případů, opraven chybný výstup při výpisu UDP komunikace se serverem.
 
-## Známe limitace programu
+## Známé limitace programu
 Program nepodporuje systém windows, dle zadání zatím s jistotou podporuje pouze systém nixOS a Ubuntu, na kterých jsem testoval.
