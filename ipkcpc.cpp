@@ -12,6 +12,7 @@
 
 #define BUFSIZE 257
 #define PAYLOADSIZE 255
+#define TCPSIZE 255
 int client_socket;
 int flag;
 
@@ -129,7 +130,7 @@ void do_udp(struct sockaddr_in* server_address){
     /* Nacteni inputu ze STDIN */
     fgets(input, BUFSIZE, stdin);
 
-    /* Slozeni zpravy pro server podle protokolu "Request Message Format"*/
+    /* Slozeni zpravy pro server podle protokolu "Request Message Format" */
     char send[257] = {0, (char)strlen(input)};
     memcpy(send + 2, input, 255);
 
@@ -146,8 +147,10 @@ void do_udp(struct sockaddr_in* server_address){
 
     /* Vypsani odpovedi*/
     memcpy(strip, &recv[3], recv[2]); //lze pouzit strlen(&send[3]) pro delku zpravy - predpokladam spravnou odpoved serveru
-    printf("%s", strip);
-    printf("\n");
+    if(recv[1] == 0)
+      printf("OK:%s\n", strip);
+    else
+      printf("ERR:%s\n", strip);
   }
 }
 
@@ -158,24 +161,24 @@ void do_tcp(struct sockaddr_in* server_address){
     exit(EXIT_FAILURE);        
   }
 
-  char input[PAYLOADSIZE];
+  char input[TCPSIZE];
   //char recv[BUFSIZE];
 	int bytes_sent, bytes_recv;
 
   while(true){
     /* nacteni zpravy od uzivatele */
-    bzero(input, PAYLOADSIZE);
-    fgets(input, PAYLOADSIZE, stdin);
+    bzero(input, TCPSIZE);
+    fgets(input, TCPSIZE, stdin);
 
     /* odeslani zpravy na server */
     bytes_sent = send(client_socket, input, strlen(input), 0);
     if (bytes_sent < 0) 
       perror("ERROR in sendto");
     
-    bzero(input, PAYLOADSIZE);
+    bzero(input, TCPSIZE);
 
     /* prijeti odpovedi a jeji vypsani */
-    bytes_recv = recv(client_socket, input, PAYLOADSIZE, 0);
+    bytes_recv = recv(client_socket, input, TCPSIZE, 0);
     if (bytes_recv < 0) 
       perror("ERROR in recvfrom");
       
