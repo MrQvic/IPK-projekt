@@ -12,7 +12,7 @@
 
 #define BUFSIZE 257
 #define PAYLOADSIZE 255
-#define TCPSIZE 255
+#define TCPSIZE 1024
 int client_socket;
 int flag;
 
