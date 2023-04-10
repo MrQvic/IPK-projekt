@@ -132,6 +132,9 @@ void do_udp(struct sockaddr_in* server_address){
   
     /* Nacteni inputu ze STDIN */
     fgets(input, BUFSIZE, stdin);
+    
+    if(feof(stdin))
+      leave(0);
 
     /* Slozeni zpravy pro server podle protokolu "Request Message Format" */
     char send[257] = {0, (char)strlen(input)};
